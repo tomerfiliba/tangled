@@ -11,6 +11,7 @@ class IocpReactor(ReactorBase):
         pass
     @classmethod
     def is_supported(cls):
+        return False
         if not win32file:
             return False
         return hasattr(win32file, "CreateIOCompletionPort")

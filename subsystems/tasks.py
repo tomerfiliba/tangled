@@ -26,13 +26,14 @@ class TaskSubsystem(Subsystem):
     NAME = "call"
     
     def at(self, timestamp, func):
-        return self._reactor.add_task(ScheduledTask(self._reactor, timestamp, func))
+        return self._reactor.register_task(ScheduledTask(self._reactor, timestamp, func))
     def within(self, seconds, func, *args, **kwargs):
         return self.at(self._reactor.clock.get_time() + seconds, func, *args, **kwargs)
     def now(self, func, *args, **kwargs):
         return self.within(0, func, *args, **kwargs)
+    __call__ = now
     def repeating(self, interval, func, *args, **kwargs):
-        return self._reactor.add_task(RepeatingTask(self._reactor, interval, func))
+        return self._reactor.register_task(RepeatingTask(self._reactor, interval, func))
 
 
 

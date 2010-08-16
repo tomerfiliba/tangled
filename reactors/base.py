@@ -118,7 +118,10 @@ class ReactorBase(object):
     
     def _work(self):
         while self._state == self.RUNNING:
-            soonest = min(task.get_remaining() for task in self._tasks)
+            if self._tasks:
+                soonest = min(task.get_remaining() for task in self._tasks)
+            else:
+                soonest = self.MAX_TIMEOUT
             self._poll(min(max(soonest, 0), self.MAX_TIMEOUT))
             new_tasks = set()
             for task in self._tasks:

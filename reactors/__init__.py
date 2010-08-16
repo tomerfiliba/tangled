@@ -8,7 +8,7 @@ from ..subsystems import get_subsystems
 
 def get_reactor_for_platform():
     for cls in [EpollReactor, KqueueReactor, IocpReactor, SelectingReactor]:
-        if cls.supported():
+        if cls.is_supported():
             return cls
     raise ReactorError("no reactor supported on this platform")
 

@@ -1,3 +1,4 @@
+import socket
 from ..reactors.base import TransportBase
 
 
@@ -52,7 +53,10 @@ class SocketStreamTransport(StreamTransport):
             raise ValueError("invalid shutdown mode: %r" % (mode,))
 
     def on_read(self, count_hint):
-        data = self.fileobj.recv(self._read_size)
+        try:
+            data = self.fileobj.recv(self._read_size)
+        except socket.error:
+            return
         if not data:
             self.protocol.disconnected()
         else:
@@ -77,7 +81,7 @@ class SocketListenerTransport(TransportBase):
 
     def on_read(self, count_hint):
         sock2, _ = self.sock.accept()
-        trns = StreamTransport(sock2, self.protocol_factory)
+        trns = StreamTransport(self.reactor, sock2, self.protocol_factory)
         self.reactor.register_transport(trns)
         trns.set_read(True)
         trns.protocol.connected()
