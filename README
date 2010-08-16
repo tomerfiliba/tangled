@@ -1,0 +1,3 @@
+tangled is a asynchronous development framework for python, inspired by twisted.
+it is designed to be very light-weight, cross platform, and is meant to be used
+where the bloatedness of twisted is not desired 
