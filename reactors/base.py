@@ -144,8 +144,9 @@ class ReactorBase(object):
         self._tasks.add(task)
     def register_process(self, proc):
         self._processes.add(proc)
-    def register_signal_handler(self, signal, func):
-        self._signal_handlers.
+    def register_signal_handler(self, sig, func):
+        signal.signal(sig, self._generic_signal_handler)
+        self._signal_handlers[sig]
 
 
 
