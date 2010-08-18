@@ -7,6 +7,11 @@ class SocketStreamTransport(StreamTransport):
         self.shutdown("rw")
         StreamTransport.close(self)
 
+    def get_local_endpoint(self):
+        return self.fileobj.getsockname()
+    def get_remote_endpoint(self):
+        return self.fileobj.getpeername()
+
     def shutdown(self, mode):
         if mode == "r":
             self.fileobj.shutdown(socket.SHUT_RD)
@@ -33,10 +38,12 @@ class SocketStreamTransport(StreamTransport):
         if not self._wbuffer:
             self.reactor.unregister_write(self)
 
+
 class SocketListenerTransport(TransportBase):
     def __init__(self, reactor, sock, protocol_factory):
         TransportBase.__init__(self, reactor)
         self.sock = sock
+        self.info = self.sock.getsockname()
         self.protocol_factory = protocol_factory
     def fileno(self):
         return self.sock.fileno()
@@ -45,7 +52,11 @@ class SocketListenerTransport(TransportBase):
         self.fileobj.close()
 
     def on_read(self, count_hint):
-        sock2, _ = self.sock.accept()
+        sock2, peerinfo = self.sock.accept()
         trns2 = SocketStreamTransport(self.reactor, sock2, self.protocol_factory)
         self.reactor.register_read(trns2)
-        trns2.protocol.connected()
+        trns2.protocol.connected(peerinfo)
+
+
+
+
