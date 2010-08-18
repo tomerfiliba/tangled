@@ -1,4 +1,3 @@
-import select
 from .base import ReactorBase
 try:
     import win32file

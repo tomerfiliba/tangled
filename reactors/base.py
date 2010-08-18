@@ -1,86 +1,40 @@
 import os
+import signal
 from threading import Lock
+from tangled.lib import clock
+from .transports import AutoResetEvent
 
 
-
-class Subsystem(object):
-    NAME = None
-    def __init__(self, reactor):
-        self._reactor = reactor
-    def _init(self):
-        pass
-
-
-class TaskBase(object):
-    def __init__(self, reactor, callback):
-        self.reactor = reactor
-        self.callback = callback
-        self.active = True
-    def cancel(self):
-        self.active = False
-    def invoke(self):
-        if self.active:
-            self.callback(self)
-    def get_remaining(self):
-        return 0
-
-
-class TransportBase(object):
-    def __init__(self, reactor):
-        self._active = True
-        self._want_read = False
-        self._want_write = False
-        self.reactor = reactor
-    def set_read(self, value):
-        self._want_read = value
-    def set_write(self, value):
-        self._want_write = value
-    def deactivate(self):
-        self._active = False
-    def fileno(self):
-        raise NotImplementedError()
-    
-    def on_error(self, info):
-        pass
-    def on_read(self, count_hint):
-        pass
-    def on_write(self, count_hint):
-        pass
-
-
-class ProcessHandler(object):
-    def __init__(self, reactor, proc, protocol_factory):
-        self.proc = proc
-        self.reactor = reactor
-        self.protocol = protocol_factory(self)
-        
-        self.stdin = PipeTransport(self.reactor, self.proc.stdin, "w")
-        self.reactor.register_transport(self.stdin)
-        
-        self.stdout = PipeTransport(self.reactor, self.proc.stdout, "r")
-        self.stdout.set_read(True)
-        self.reactor.register_transport(self.stdout)
-        
-        self.stderr = PipeTransport(self.reactor, self.proc.stderr, "r")
-        self.stderr.set_read(True)
-        self.reactor.register_transport(self.stderr)
-    
-    def on_terminated(self):
-        self.protocol.terminated(self.proc.returncode)
+HAS_SIGCHLD = hasattr(signal, "SIGCHLD")
 
 
 class ReactorBase(object):
     IDLE = 1
     RUNNING = 2
     STOPPED = 3
+    ERROR = 4
+    MAX_POLL_TIMEOUT = 0.3
 
-    READ_EVENT = 1
-    WRITE_EVENT = 2
-    
-    def __init__(self, clock, subsystems):
-        self.clock = clock
+
+    def __init__(self, subsystems):
         self._state = self.IDLE
         self._lock = Lock()
+        self._read_transports = set()
+        self._write_transports = set()
+        self._changed_transports = set()
+        self._processes = set()
+        self._tasks = []
+        self._callbacks = []
+        self._signal_handlers = {}
+        self._event = AutoResetEvent()
+        self.register_read(self._event)
+        
+        if HAS_SIGCHLD:
+            self._check_processes = False
+            def sigchld_handler(sig):
+                self._check_processes = True
+            self.register_signal(signal.SIGCHLD, sigchld_handler)
+        
         self._subsystems = {}
         for cls in subsystems:
             inst = cls(self)
@@ -90,9 +44,6 @@ class ReactorBase(object):
             setattr(self, cls.NAME, inst)
         for cls in subsystems:
             self._subsystems[cls.NAME]._init()
-        self._transports = set()
-        self._processes = set()
-        self._tasks = set()
 
     @classmethod
     def is_supported(cls):
@@ -113,49 +64,125 @@ class ReactorBase(object):
             if self._state != self.RUNNING:
                 raise ReactorError("cannot start, reactor not running")
             self._state = self.STOPPED
-    
-    MAX_TIMEOUT = 0.5
-    
+
     def _work(self):
-        while self._state == self.RUNNING:
-            if self._tasks:
-                soonest = min(task.get_remaining() for task in self._tasks)
-            else:
-                soonest = self.MAX_TIMEOUT
-            self._poll(min(max(soonest, 0), self.MAX_TIMEOUT))
-            new_tasks = set()
-            for task in self._tasks:
-                if task.get_remaining() <= 0:
-                    task.invoke()
-                if task.active:
-                    new_tasks.add(task)
-            self._tasks = new_tasks
+        try:
+            while self._state == self.RUNNING:
+                timeout = self._get_poll_timeout()
+                self._poll_transports(min(timeout, self.MAX_POLL_TIMEOUT))
+                self._changed_transports.clear()
+                self._handle_processes()
+                self._handle_tasks()
+                self._handle_callbacks()
+        except Exception, ex:
+            self._state = self.ERROR
+            raise
+
+    def _get_poll_timeout(self):
+        now = clock()
+        if self._tasks:
+            soonest = min(task.get_remaining_time(now) for task in self._tasks)
+        else:
+            soonest = self.MAX_POLL_TIMEOUT
+        return max(soonest, 0)
     
-    def _sigchld_handler(self, sig, frame):
-        pid, rc = os.waitpid(-1, os.WNOHANG)
-        self._terminated_processes.append(pid)
-    
-    def _generic_signal_handler(self, sig, frame):
-        self._signals.append(sig)
-    
-    def _poll(self, timeout):
+    def _poll_transports(self, timeout):
         raise NotImplementedError()
+
+    def _prune_bad_fds(self):
+        for transports in [self._read_transports, self._write_transports]:
+            bad = set()
+            for trns in transports:
+                try:
+                    os.fstat(trns.fileno())
+                except OSError, ex:
+                    bad.add(trns)
+                    self.call(trns.on_error, ex)
+            transports -= bad
     
-    def register_transport(self, transport):
-        self._transports.add(transport)
-    def register_task(self, task):
-        self._tasks.add(task)
+    def _handle_processes(self):
+        if HAS_SIGCHLD:
+            if self._check_processes:
+                self._check_processes = False
+            else:
+                return
+        for proc in self._processes:
+            rc = proc.poll()
+            if rc is not None:
+                self.call(proc.on_terminated, rc)
+                self.call(self._processes.remove, proc)
+    
+    def _handle_tasks(self):
+        new_tasks = []
+        now = clock()
+        for task in self._tasks:
+            if task.get_remaining_time(now) <= 0:
+                self.call(task.invoke)
+            else:
+                new_tasks.append(task)
+        self._tasks = new_tasks
+    
+    def _handle_callbacks(self):
+        for func, args, kwargs in self._callbacks:
+            func(*args, **kwargs)
+        del self._callbacks[:]
+    
+    #
+    # transports
+    #
+    def register_read(self, transport):
+        self._read_transports.add(transport)
+        self._changed_transports.add(transport)
+
+    def unregister_read(self, transport):
+        self._read_transports.discard(transport)
+        self._changed_transports.add(transport)
+    
+    def register_write(self, transport):
+        self._write_transports.add(transport)
+        self._changed_transports.add(transport)
+    
+    def unregister_write(self, transport):
+        self._write_transports.discard(transport)
+        self._changed_transports.add(transport)
+    
+    #
+    # processes
+    #
     def register_process(self, proc):
         self._processes.add(proc)
-    def register_signal_handler(self, sig, func):
+
+    #
+    # signals
+    #
+    def _generic_signal_handler(self, sig, frame):
+        for handler in self._signal_handlers[sig]:
+            if HAS_SIGCHLD and sig == signal.SIGCHLD:
+                handler(sig)
+            else:
+                self.call(handler, sig)
+        self._event.set()
+
+    def register_signal(self, sig, func):
         signal.signal(sig, self._generic_signal_handler)
-        self._signal_handlers[sig]
+        if sig not in self._signal_handlers:
+            self._signal_handlers[sig] = []
+        self._signal_handlers[sig].append(func)
 
+    def unregister_signal(self, sig, func):
+        self._signal_handlers[sig].remove(func)
+        if not self._signal_handlers[sig]:
+            del self._signal_handlers[sig]
+            signal.signal(sig, signal.SIG_DFL)
 
+    #
+    # tasks
+    #
+    def call(self, func, *args, **kwargs):
+        self._callbacks.append((func, args, kwargs))
 
-
-
-
+    def register_task(self, task):
+        self._tasks.append(task)
 
 
 

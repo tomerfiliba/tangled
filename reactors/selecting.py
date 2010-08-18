@@ -5,16 +5,19 @@ from .base import ReactorBase
 
 
 class SelectingReactor(ReactorBase):
-    def _poll(self, timeout):
-        rset = [trns for trns in self._transports if trns._want_read]
-        wset = [trns for trns in self._transports if trns._want_write]
-        if not rset and not wset:
+    def _poll_transports(self, timeout):
+        if not self._read_transports and not self._write_transports:
             time.sleep(timeout)
             return
-        rset2, wset2, _ = select.select(rset, wset, [], timeout)
-        for set in [rset2, wset2]:
-            for trns in set:
-                trns.on_read(None)
+        try:
+            rlst, wlst, _ = select.select(self._read_transports, self._write_transports, [], timeout)
+        except (select.error, OSError):
+            self._prune_bad_fds()
+            return
+        for trns in rlst:
+            self.call(trns.on_read, -1)
+        for trns in wlst:
+            self.call(trns.on_write, -1)
     
     @classmethod
     def is_supported(cls):

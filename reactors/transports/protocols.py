@@ -1,12 +1,18 @@
 class ProtocolBase(object):
     def __init__(self, transport):
         self.transport = transport
+        self.reactor = self.transport.reactor
+
 
 class StreamProtocol(ProtocolBase):
     def send(self, data):
         self.transport.write(data)
+    def close(self):
+        self.transport.close()
 
     # events
+    def error(self):
+        pass
     def connected(self):
         pass
     def disconnected(self):
@@ -14,8 +20,9 @@ class StreamProtocol(ProtocolBase):
     def received(self, data):
         pass
 
+
 class ProcessProtocol(ProtocolBase):
-    def send(self, data):
+    def write(self, data):
         self.transport.stdin.write(data)
     def signal(self, sig):
         self.transport.proc.send_signal(sig)

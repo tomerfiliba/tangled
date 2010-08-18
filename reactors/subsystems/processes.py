@@ -1,4 +1,4 @@
-from ..reactors.base import Subsystem
+from .base import Subsystem
 
 
 class ProcSubsystem(Subsystem):
@@ -9,8 +9,6 @@ class ProcSubsystem(Subsystem):
     
     def worker(self):
         pass
-
-
 
 
 

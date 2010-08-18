@@ -1,5 +1,6 @@
 import tangled
 
+
 reactor = tangled.get_reactor()
 
 class MyServer(tangled.StreamProtocol):
@@ -22,14 +23,12 @@ class MyClient(tangled.StreamProtocol):
             self.count += 1
             self.send("what is your name? (%d)" % (self.count))
         else:
-            self.close()
+            self.transport.close()
 
 
 reactor.tcp.listen(MyServer, 12345)
 reactor.tcp.connect(MyClient, "localhost", 12345)
 reactor.start()
 print "reactor finished"
-
-
 
 

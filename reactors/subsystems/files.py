@@ -1,7 +1,7 @@
 import os
 import fcntl
-from ..reactors.base import Subsystem
-from ..utils.transports import FileTransport
+from .base import Subsystem
+from ..transports import FileTransport
 
 
 class FilesSubsystem(Subsystem):
@@ -15,8 +15,7 @@ class FilesSubsystem(Subsystem):
         mode2 = self.MODE_MAPPING[mode]
         trns = FileTransport(self._reactor, f, mode2)
         if "r" in mode2:
-            trns.set_read(True)
-        self._reactor.register_transport(trns)
+            self._reactor.register_read(trns)
 
 
     
