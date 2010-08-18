@@ -52,10 +52,10 @@ class SocketListenerTransport(TransportBase):
         self.fileobj.close()
 
     def on_read(self, count_hint):
-        sock2, peerinfo = self.sock.accept()
+        sock2, _ = self.sock.accept()
         trns2 = SocketStreamTransport(self.reactor, sock2, self.protocol_factory)
         self.reactor.register_read(trns2)
-        trns2.protocol.connected(peerinfo)
+        trns2.protocol.connected()
 
 
 

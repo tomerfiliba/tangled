@@ -13,7 +13,7 @@ class StreamProtocol(ProtocolBase):
     # events
     def error(self):
         pass
-    def connected(self, info):
+    def connected(self):
         pass
     def disconnected(self):
         pass
