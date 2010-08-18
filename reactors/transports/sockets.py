@@ -29,6 +29,8 @@ class SocketStreamTransport(StreamTransport):
             return
         if not data:
             self.protocol.disconnected()
+            self.close()
+            #self.reactor.unregister_read(self)
         else:
             self.protocol.received(data)
     
@@ -43,10 +45,11 @@ class SocketListenerTransport(TransportBase):
     def __init__(self, reactor, sock, protocol_factory):
         TransportBase.__init__(self, reactor)
         self.sock = sock
+        self._fileno = sock.fileno()
         self.info = self.sock.getsockname()
         self.protocol_factory = protocol_factory
     def fileno(self):
-        return self.sock.fileno()
+        return self._fileno
     def close(self):
         self.deactivate()
         self.fileobj.close()

@@ -52,11 +52,12 @@ class StreamTransport(TransportBase):
         TransportBase.__init__(self, reactor)
         self.fileobj = fileobj
         self.protocol = protocol_factory(self)
+        self._fileno = fileobj.fileno()
         self._wbuffer = ""
         self._read_size = self.READ_SIZE if read_size is None else read_size
         self._write_size = self.WRITE_SIZE if write_size is None else write_size
     def fileno(self):
-        return self.fileobj.fileno()
+        return self._fileno
     def close(self):
         self.deactivate()
         self.fileobj.close()
