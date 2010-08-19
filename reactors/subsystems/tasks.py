@@ -58,7 +58,7 @@ class TaskSubsystem(Subsystem):
     def repeating(self, interval, func):
         return self._reactor.register_task(RepeatingTask(self._reactor, interval, func))
 
-    #def repeating2(self, interval, func, *args, **kwargs):
-    #    return self._reactor.register_task(RepeatingTask(self._reactor, interval, lambda task: func(*args, **kwargs)))
+    def repeating2(self, interval, func, *args, **kwargs):
+        return self._reactor.register_task(RepeatingTask(self._reactor, interval, lambda task: func(*args, **kwargs)))
 
 

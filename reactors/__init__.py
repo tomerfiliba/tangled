@@ -12,8 +12,13 @@ def get_reactor_for_platform():
     raise ReactorError("no reactor supported on this platform")
 
 
+the_reactor = None
+
 def get_reactor():
-    cls = get_reactor_for_platform()
-    return cls(get_subsystems())
+    global the_reactor
+    if the_reactor is None:
+        cls = get_reactor_for_platform()
+        the_reactor = cls(get_subsystems())
+    return the_reactor
 
 

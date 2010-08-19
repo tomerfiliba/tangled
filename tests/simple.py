@@ -4,11 +4,10 @@ from functools import partial
 
 class MyServer(tangled.StreamProtocol):
     def connected(self):
-        self.peerinfo = self.transport.get_remote_endpoint()
-        print "server says hello to", self.peerinfo
+        print "server says hello to", self.transport.peerinfo
     def disconnected(self):
-        print "server says goodbye to", self.peerinfo
-    def received(self, data):
+        print "server says goodbye to", self.transport.peerinfo
+    def data_received(self, data):
         print "server got: %r" % (data,)
         self.send("foobar") 
 
@@ -17,7 +16,7 @@ class MyClient(tangled.StreamProtocol):
         self.count = 0
         self.send("what is your name? (%d)" % (self.count))
     
-    def received(self, data):
+    def data_received(self, data):
         print "client got: %r" % (data,)
         self.count += 1
         if self.count < 10:
@@ -26,14 +25,16 @@ class MyClient(tangled.StreamProtocol):
             self.close()
 
 
-reactor = tangled.get_reactor()
-reactor.tcp.listen(MyServer, 12345)
-reactor.tcp.connect(MyClient, "localhost", 12345)
-reactor.schedule.within(5, reactor.tcp.connect, MyClient, "localhost", 12345)
-reactor.schedule.within(10, reactor.stop)
+class App(tangled.utils.Application):
+    def main(self):
+        trns = yield self.reactor.tcp.listen(MyServer, 0)
+        self.reactor.tcp.connect(MyClient, trns.host, trns.port)
+        self.reactor.schedule.within(3, self.reactor.tcp.connect, MyClient, trns.host, trns.port)
+        self.reactor.schedule.within(5, self.reactor.stop)
 
-reactor.start()
-print "reactor finished"
+
+if __name__ == "__main__":
+    App().start()
 
 
 

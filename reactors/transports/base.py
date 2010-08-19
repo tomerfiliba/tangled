@@ -1,5 +1,4 @@
 import socket
-import os
 
 
 class TransportBase(object):
@@ -23,23 +22,29 @@ class AutoResetEvent(TransportBase):
     __slots__ = ["_rfd", "_wfd", "_is_set"]
     def __init__(self):
         self._is_set = False
-        self._rfd, self._wfd = os.pipe()
-    def __del__(self):
-        self.close()
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.bind(("localhost", 0))
+        listener.listen(1)
+        self._wsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._wsock.connect(listener.getsockname())
+        self._rsock = listener.accept()[0]
+        listener.close()
+        
     def close(self):
-        os.close(self._rfd)
-        os.close(self._wfd)
+        self._wsock.close()
+        self._rsock.close()
+        self.deactivate()
     def fileno(self):
-        return self._rfd
+        return self._rsock.fileno()
     def set(self):
         if self._is_set:
             return
         self._is_set = True
-        os.write(self._wfd, "X")
+        self._wsock.write("X")
     def reset(self):
         if not self._is_set:
             return
-        os.read(self._rfd, 10)
+        self._rsock.recv(100)
         self._is_set = False
     def on_read(self, count_hint):
         self.reset()
@@ -61,6 +66,7 @@ class StreamTransport(TransportBase):
     def close(self):
         self.deactivate()
         self.fileobj.close()
+        self.fileobj = None
 
     def write(self, data):
         self._wbuffer += data
@@ -72,7 +78,7 @@ class StreamTransport(TransportBase):
         if not data:
             self.protocol.disconnected()
         else:
-            self.protocol.received(data)
+            self.protocol.data_received(data)
     
     def on_write(self, count_hint):
         self.fileobj.write(self._wbuffer[:self._write_size])

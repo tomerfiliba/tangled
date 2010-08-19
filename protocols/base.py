@@ -17,7 +17,7 @@ class StreamProtocol(ProtocolBase):
         pass
     def disconnected(self):
         pass
-    def received(self, data):
+    def data_received(self, data):
         pass
 
 

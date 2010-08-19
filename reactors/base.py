@@ -162,6 +162,7 @@ class ReactorBase(object):
             else:
                 self.call(handler, sig)
         self._event.set()
+        #signal.signal(sig, self._generic_signal_handler)
 
     def register_signal(self, sig, func):
         signal.signal(sig, self._generic_signal_handler)
