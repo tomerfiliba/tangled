@@ -10,12 +10,15 @@ class IOCP(object):
         self._port = win32file.CreateIoCompletionPort(win32file.INVALID_FILE_HANDLE, None, 0, 0)
     def add_handle(self, handle):
         win32file.CreateIoCompletionPort(handle, self._port, int(port), 0)
+    def post(self):
+        win32file.PostQueuedCompletionStatus(self._port, numberOfbytes, completionKey, overlapped)
     def wait(self, timeout):
         rc, size, key, overlapped = win32file.GetQueuedCompletionStatus(self._port, int(timeout * 1000))
         if rc == 0:
             pass
         else:
             pass
+        
 
 #(rc, cBytesRecvd) = WSARecv(s, buffer, ol, dwFlags)
 #s : PySocket/int
