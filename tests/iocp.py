@@ -123,6 +123,102 @@ if __name__ == "__main__":
 
 
 
+"""
+
+HANDLE CreateEvent(None, False, False, None)
+BOOL WINAPI SetEvent(hEvent)
+DWORD WINAPI WaitForSingleObjectEx(HANDLE hHandle, DWORD dwMilliseconds, True)
+-> WAIT_OBJECT_0 (0)
+   WAIT_IO_COMPLETION (0x000000C0)
+   WAIT_TIMEOUT (0x00000102)
+
+BOOL WINAPI ReadFileEx(
+  __in       HANDLE hFile, 
+  __out_opt  LPVOID lpBuffer,
+  __in       DWORD nNumberOfBytesToRead,
+  __inout    LPOVERLAPPED lpOverlapped,
+  __in_opt   LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+);
+
+BOOL WINAPI WriteFileEx(
+  __in      HANDLE hFile,
+  __in_opt  LPCVOID lpBuffer,
+  __in      DWORD nNumberOfBytesToWrite,
+  __inout   LPOVERLAPPED lpOverlapped,
+  __in_opt  LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+);
+
+VOID CALLBACK LPOVERLAPPED_COMPLETION_ROUTINE (
+  __in  DWORD dwErrorCode,
+  __in  DWORD dwNumberOfBytesTransfered,
+  __in  LPOVERLAPPED lpOverlapped
+);
+
+BOOL WINAPI GetOverlappedResult(
+  __in   HANDLE hFile,
+  __in   LPOVERLAPPED lpOverlapped,
+  __out  LPDWORD lpNumberOfBytesTransferred,
+  False
+);
+
+followed by GetLastError
+
+BOOL WINAPI CancelIoEx(
+  __in      HANDLE hFile,
+  __in_opt  LPOVERLAPPED lpOverlapped
+);
+
+------------------------------------------------
+
+SOCKET WSASocket(
+  __in  int af,
+  __in  int type,
+  __in  int protocol,
+  __in  LPWSAPROTOCOL_INFO lpProtocolInfo,
+  __in  GROUP g,
+  __in  DWORD dwFlags
+);
+
+int WSASend(
+  __in   SOCKET s,
+  __in   LPWSABUF lpBuffers,
+  __in   DWORD dwBufferCount,
+  __out  LPDWORD lpNumberOfBytesSent,
+  __in   DWORD dwFlags,
+  __in   LPWSAOVERLAPPED lpOverlapped,
+  __in   LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+);
+
+
+BOOL AcceptEx( --------------------------<< NO APC, only IOCP
+  __in   SOCKET sListenSocket,
+  __in   SOCKET sAcceptSocket,
+  __in   PVOID lpOutputBuffer,
+  __in   DWORD dwReceiveDataLength,
+  __in   DWORD dwLocalAddressLength,
+  __in   DWORD dwRemoteAddressLength,
+  __out  LPDWORD lpdwBytesReceived,
+  __in   LPOVERLAPPED lpOverlapped
+);
+
+void CALLBACK LPWSAOVERLAPPED_COMPLETION_ROUTINE (
+  IN DWORD dwError,
+  IN DWORD cbTransferred,
+  IN LPWSAOVERLAPPED lpOverlapped,
+  IN DWORD dwFlags
+);
+
+"""
+
+
+
+
+
+
+
+
+
+
 
 
 
