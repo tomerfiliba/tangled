@@ -1,4 +1,4 @@
-from .base import ReactorBase
+from ..base import ReactorBase
 try:
     import win32file
 except ImportError:
